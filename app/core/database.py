@@ -1,6 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from app.core.config import settings
+from app.models.job import Job
 from app.models.project import Project
 from app.models.skill import Skill
 from app.models.experience import Experience
@@ -13,7 +14,7 @@ async def init_db():
 
     await init_beanie(
         database=db,
-        document_models=[Project, Skill, Experience],
+        document_models=[Project, Skill, Experience, Job],
         skip_indexes=True
     )
 
