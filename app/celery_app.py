@@ -1,6 +1,8 @@
 from celery import Celery
 import os
 from celery.schedules import crontab
+from celery.signals import worker_process_init
+from app.core.database import init_db
 
 celery_app = Celery(
     "portfolio",
@@ -15,6 +17,10 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
 )
+@worker_process_init.connect
+def setup_worker(**kwargs):
+    import asyncio
+    asyncio.run(init_db())
 
 celery_app.conf.beat_schedule = {
     "fetch-jobs-every-2-hours": {
