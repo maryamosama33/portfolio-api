@@ -1,23 +1,13 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field
+
+from app.schemas.common import ReadBase
 
 
 class ProjectCreate(BaseModel):
-    name: str
-    description: str
-    tech_stack: list[str]
+    name: str = Field(min_length=1, examples=["Portfolio API"])
+    description: str = Field(min_length=1)
+    tech_stack: list[str] = Field(examples=[["Python", "FastAPI", "MongoDB"]])
 
 
-class ProjectRead(ProjectCreate):
-    id: str = Field(alias="_id")
-    created_at: datetime | None = None
-    created_by: str | None = None
-    updated_at: datetime | None = None
-    updated_by: str | None = None
-    deleted_at: datetime | None = None
-    deleted_by: str | None = None
-    is_deleted: bool = False
-
-    class Config:
-        populate_by_name = True
+class ProjectRead(ProjectCreate, ReadBase):
+    pass

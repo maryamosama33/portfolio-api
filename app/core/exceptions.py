@@ -1,16 +1,24 @@
-class ProjectNotFoundError(Exception):
-    def __init__(self, project_id: str):
-        self.project_id = project_id
-        self.detail = f"Project {project_id} not found"
+from typing import Any
 
 
-class SkillNotFoundError(Exception):
-    def __init__(self, skill_id: str):
-        self.skill_id = skill_id
-        self.detail = f"Skill {skill_id} not found"
+class NotFoundError(Exception):
+    """A requested resource does not exist (or was soft-deleted)."""
+
+    def __init__(self, resource: str, resource_id: Any):
+        self.resource = resource
+        self.resource_id = str(resource_id)
+        self.detail = f"{resource.capitalize()} {resource_id} not found"
 
 
-class ExperienceNotFoundError(Exception):
-    def __init__(self, experience_id: str):
-        self.experience_id = experience_id
-        self.detail = f"Experience {experience_id} not found"
+class AIServiceError(Exception):
+    """An external AI provider (Gemini, Tavily) is unavailable or misconfigured."""
+
+    def __init__(self, detail: str):
+        self.detail = detail
+
+
+class PortfolioIncompleteError(Exception):
+    """The portfolio lacks the data an operation needs (e.g. no skills to search with)."""
+
+    def __init__(self, detail: str):
+        self.detail = detail

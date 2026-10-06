@@ -1,25 +1,33 @@
-from beanie import Document
 from datetime import datetime, timezone
+
+from beanie import Document
 from pydantic import Field
-from typing import Optional
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class BaseDocument(Document):
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: Optional[datetime] = None
+    """Common audit and soft-delete fields for every portfolio collection."""
+
+    created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = None
+    updated_at: datetime | None = None
+    updated_by: str | None = None
 
     is_deleted: bool = False
-    deleted_at: Optional[datetime] = None
-    deleted_by: Optional[str] = None
+    deleted_at: datetime | None = None
+    deleted_by: str | None = None
 
     class Settings:
         keep_nulls = False
 
-    async def soft_delete(self, deleted_by: Optional[str] = None):
+    async def soft_delete(self, deleted_by: str | None = None):
+        now = utcnow()
         self.is_deleted = True
-        self.deleted_at = datetime.now(timezone.utc)
+        self.deleted_at = now
         self.deleted_by = deleted_by
-        self.updated_at = datetime.now(timezone.utc)
-
+        self.updated_at = now
         await self.save()
         return self
