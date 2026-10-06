@@ -1,5 +1,10 @@
-env/
-__pychache__/
+.git
+.github
+.venv
+**/__pycache__
+.pytest_cache
+.env
 *.env
-*.env.*
-env.*
+.env.*
+tests
+chatbot
