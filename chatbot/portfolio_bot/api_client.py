@@ -1,21 +1,22 @@
-import httpx
+import logging
 import os
 
-BASE_URL = os.getenv("BASE_URL")
+import httpx
 
-async def fetch(endpoint: str):
+logger = logging.getLogger(__name__)
+
+# Includes the version prefix, e.g. http://api:8000/api/v1
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000/api/v1")
+TIMEOUT_SECONDS = 15
+
+
+async def get_json(endpoint: str, params: dict | None = None) -> dict | None:
+    """GET an API endpoint. Returns None on any failure so tools can degrade gracefully."""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BASE_URL}/{endpoint}")
+        async with httpx.AsyncClient(base_url=BASE_URL, timeout=TIMEOUT_SECONDS) as client:
+            response = await client.get(endpoint, params=params)
             response.raise_for_status()
-            data = response.json()
-            return data["items"]
-    except httpx.RequestError as e:
-        print(f"API request failed: {e}")
-        return []
-    except httpx.HTTPStatusError as e:
-        print(f"API returned error: {e}")
-        return []
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        return []
+            return response.json()
+    except httpx.HTTPError as exc:
+        logger.warning("Portfolio API call %s failed: %s", endpoint, exc)
+        return None

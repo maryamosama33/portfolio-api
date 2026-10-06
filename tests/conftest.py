@@ -1,90 +1,44 @@
-import pytest
-import asyncio
-from motor.motor_asyncio import AsyncIOMotorClient
-from beanie import init_beanie
-from fastapi.testclient import TestClient
-from app.main import app
-from app.core.config import Settings
-from app.models.project import Project
-from app.models.skill import Skill
-from app.models.experience import Experience
+import os
+
+import bcrypt
+
+# Settings are read at import time, so configure the environment before importing the app.
+TEST_ADMIN_PASSWORD = "test-password"
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-that-is-long-enough-for-hs256")
+os.environ.setdefault(
+    "ADMIN_PASSWORD_HASH", bcrypt.hashpw(TEST_ADMIN_PASSWORD.encode(), bcrypt.gensalt(4)).decode()
+)
+os.environ.setdefault("ADMIN_USERNAME", "admin")
+os.environ.setdefault("GEMINI_API_KEY", "test-gemini-key")
+os.environ.setdefault("TAVILY_API_KEY", "test-tavily-key")
+
+import fakeredis  # noqa: E402
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.core import redis as redis_module  # noqa: E402
+from app.main import app  # noqa: E402
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+@pytest.fixture(autouse=True)
+def fake_redis(monkeypatch):
+    """Every test gets an empty in-memory Redis."""
+    fake = fakeredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(redis_module, "redis_client", fake)
+    return fake
 
 
-@pytest.fixture(scope="session")
-async def test_settings():
-    return Settings(
-        mongo_uri="mongodb://localhost:27017/test_portfolio_db",
-        db_name="test_portfolio_db"
+@pytest.fixture
+def client():
+    # No `with` block, so the lifespan (MongoDB connection) doesn't run.
+    # Tests using this fixture stub out the service layer.
+    return TestClient(app)
+
+
+@pytest.fixture
+def auth_headers(client) -> dict[str, str]:
+    response = client.post(
+        "/api/v1/auth/token", data={"username": "admin", "password": TEST_ADMIN_PASSWORD}
     )
-
-
-@pytest.fixture(scope="session")
-async def test_database(test_settings):
-    client = AsyncIOMotorClient(test_settings.mongo_uri)
-    db = client[test_settings.db_name]
-
-    await init_beanie(
-        database=db,
-        document_models=[Project, Skill, Experience],
-        skip_indexes=True
-    )
-
-    yield db
-
-    await client.drop_database(test_settings.db_name)
-    client.close()
-
-
-@pytest.fixture(scope="function")
-async def clean_database(test_database):
-    collections = await test_database.list_collection_names()
-    for collection in collections:
-        await test_database[collection].delete_many({})
-
-    yield test_database
-
-
-@pytest.fixture(scope="function")
-def client(clean_database):
-    with TestClient(app) as test_client:
-        yield test_client
-
-
-@pytest.fixture(scope="function")
-async def sample_project_data():
-    """Sample project data for testing."""
-    return {
-        "name": "Test Project",
-        "description": "A test project description",
-        "tech_stack": ["Python", "FastAPI", "MongoDB"]
-    }
-
-
-@pytest.fixture(scope="function")
-async def sample_skill_data():
-    """Sample skill data for testing."""
-    return {
-        "name": "Python",
-        "level": "Advanced",
-        "category": "Programming Language"
-    }
-
-
-@pytest.fixture(scope="function")
-async def sample_experience_data():
-    """Sample experience data for testing."""
-    return {
-        "title": "Software Developer",
-        "company": "Test Company",
-        "start_date": "2023-01-01",
-        "end_date": "2023-12-31",
-        "description": "Test experience description",
-        "technologies": ["Python", "FastAPI"]
-    }
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}

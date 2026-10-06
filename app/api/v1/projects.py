@@ -1,41 +1,36 @@
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Header, Query
-from app.services.project_service import ProjectService
+from fastapi import APIRouter, Query, status
+
+from app.api.deps import CurrentUser
+from app.repositories.project_repository import ProjectRepository
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.project import ProjectCreate, ProjectRead
+from app.services.crud_service import CrudService
 
-router = APIRouter()
-service = ProjectService()
+router = APIRouter(prefix="/projects", tags=["Projects"])
+service = CrudService("project", ProjectRepository())
 
-@router.post("/project")
-async def create_project(
-    project: ProjectCreate,
-    x_user_id: str | None = Header(None, alias="X-User-Id"),
-):
-    return await service.create_project(project, user_id=x_user_id)
 
-@router.get("/projects", response_model=PaginatedResponse[ProjectRead])
-async def get_projects(
-    page: int = Query(1, ge=1),
-    size: int = Query(10, ge=1, le=50),
-):
-    return await service.get_projects(page, size)
+@router.get("", response_model=PaginatedResponse[ProjectRead])
+async def list_projects(page: int = Query(1, ge=1), size: int = Query(10, ge=1, le=50)):
+    return await service.paginate(page, size)
 
-@router.get("/project/{project_id}")
+
+@router.get("/{project_id}", response_model=ProjectRead)
 async def get_project(project_id: PydanticObjectId):
-    return await service.get_project(project_id)
+    return await service.get(project_id)
 
-@router.put("/project/{project_id}")
-async def update_project(
-    project_id: PydanticObjectId,
-    project: ProjectCreate,
-    x_user_id: str | None = Header(None, alias="X-User-Id"),
-):
-    return await service.update_project(project_id, project, user_id=x_user_id)
 
-@router.delete("/project/{project_id}")
-async def delete_project(
-    project_id: PydanticObjectId,
-    x_user_id: str | None = Header(None, alias="X-User-Id"),
-):
-    return await service.delete_project(project_id, user_id=x_user_id)
+@router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
+async def create_project(project: ProjectCreate, user: CurrentUser):
+    return await service.create(project, user_id=user)
+
+
+@router.put("/{project_id}", response_model=ProjectRead)
+async def update_project(project_id: PydanticObjectId, project: ProjectCreate, user: CurrentUser):
+    return await service.update(project_id, project, user_id=user)
+
+
+@router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(project_id: PydanticObjectId, user: CurrentUser):
+    await service.delete(project_id, user_id=user)
